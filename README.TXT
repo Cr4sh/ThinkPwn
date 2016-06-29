@@ -12,7 +12,8 @@ This code exploits 0day privileges escalation vulnerability (or backdoor?) in Sy
 
 Vulnerable SMM callback code:
 
-    EFI_STATUS __fastcall sub_AD3AFA54(EFI_HANDLE SmmImageHandle, VOID *CommunicationBuffer, UINTN *SourceSize)
+    EFI_STATUS __fastcall sub_AD3AFA54(
+        EFI_HANDLE SmmImageHandle, VOID *CommunicationBuffer, UINTN *SourceSize)
     {
         VOID *v3; // rax@1
         VOID *v4; // rbx@1
@@ -28,7 +29,7 @@ Vulnerable SMM callback code:
             */
             *(v3 + 0x8)(*(VOID **)v3, &dword_AD002290, CommunicationBuffer + 0x18);
 
-            // set zero value in EFI_SMM_COMMUNICATE_HEADER.Data to indicate successful operation
+            // set zero value to indicate successful operation
             *(VOID **)(v4 + 0x20) = 0;
         }
         
