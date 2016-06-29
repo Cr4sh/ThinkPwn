@@ -5,10 +5,10 @@
 
 For more information about this project please read the following article:
 
-http://blog.cr4.sh/...
+http://blog.cr4.sh/2016/06/exploring-and-exploiting-lenovo.html
 
 
-This code exploits 0day vulnerability in SystemSmmRuntimeRt UEFI driver (GUID is 7C79AC8C-5E6C-4E3D-BA6F-C260EE7C172E) of Lenovo firmware. Vulnerability is present in all of the ThinkPad series laptops, the oldest one that I have checked is X220 and the neweset one is T450s (with latest firmware versions available at this moment). Running of arbitrary System Management Mode code allows attacker to disable flash write protection and infect platform firmware, disable Secure Boot, bypass Virtual Secure Mode (Credential Guard, etc.) on Windows 10 Enterprise and do others evil things.
+This code exploits 0day privileges escalation vulnerability (or backdoor?) in SystemSmmRuntimeRt UEFI driver (GUID is 7C79AC8C-5E6C-4E3D-BA6F-C260EE7C172E) of Lenovo firmware. Vulnerability is present in all of the ThinkPad series laptops, the oldest one that I have checked is X220 and the neweset one is T450s (with latest firmware versions available at this moment). Running of arbitrary System Management Mode code allows attacker to disable flash write protection and infect platform firmware, disable Secure Boot, bypass Virtual Secure Mode (Credential Guard, etc.) on Windows 10 Enterprise and do others evil things.
 
 Vulnerable SMM callback code:
 
@@ -46,7 +46,7 @@ To build exploit from the source code on Windows with Visual Studio compiler you
 
   3. Execute Edk2Setup.bat --pull to configure build environment and download required binaries.
 
-  4. Edit AppPkg/AppPkg.dsc file and add path of ThinkPwn/ThinkPwn.dsc to the end of [Components] section.
+  4. Edit AppPkg/AppPkg.dsc file and add path of ThinkPwn/ThinkPwn.dsc to the end of the [Components] section.
 
   5. cd to the ThinkPwn project directory and run build command.
 
