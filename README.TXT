@@ -10,6 +10,23 @@ http://blog.cr4.sh/2016/06/exploring-and-exploiting-lenovo.html
 
 This code exploits 0day privileges escalation vulnerability (or backdoor?) in SystemSmmRuntimeRt UEFI driver (GUID is 7C79AC8C-5E6C-4E3D-BA6F-C260EE7C172E) of Lenovo firmware. Vulnerability is present in all of the ThinkPad series laptops, the oldest one that I have checked is X220 and the neweset one is T450s (with latest firmware versions available at this moment). Running of arbitrary System Management Mode code allows attacker to disable flash write protection and infect platform firmware, disable Secure Boot, bypass Virtual Secure Mode (Credential Guard, etc.) on Windows 10 Enterprise and do others evil things.
 
+##########################################
+
+[!] IMPORTANT UPDATE:
+
+Vulnerable code of SystemSmmRuntimeRt UEFI driver was copy-pasted by Lenovo from Intel reference code for 8-series chipsets. This exact code is not available in public but open source firmware of some Intel boards is also sharing it. For example, here you can see SmmRuntimeManagementCallback() function from Intel Quark BSP -- it's exactly the same vulnerable code.
+
+https://kernel.googlesource.com/pub/scm/linux/kernel/git/jejb/Quark_EDKII/+/master/QuarkSocPkg/QuarkNorthCluster/Smm/Dxe/SmmRuntime/SmmRuntime.c#639
+
+EDK2 source from public repository never had this vulnerability -- it's version of QuarkSocPkg was heavily modified in comparison with vulnerable one:
+
+https://github.com/tianocore/edk2/commits/master/QuarkSocPkg
+
+It means that original vulnerability was fixed by Intel in the middle of 2014. Unfortunately, there was no any public adviosries, so, it's still not clear that Intel or Lenovo actualy knew about it. There's a high possibility that old Intel code with this vulnerability currently present in firmware of other OEM/IBV vendors.
+
+##########################################
+
+
 Vulnerable SMM callback code:
 
     EFI_STATUS __fastcall sub_AD3AFA54(
