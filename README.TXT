@@ -12,7 +12,7 @@ This code exploits 0day privileges escalation vulnerability (or backdoor?) in Sy
 
 ##########################################
 
-[!] IMPORTANT UPDATE:
+UPDATE FROM 30.06.2016:
 
 Vulnerable code of SystemSmmRuntimeRt UEFI driver was copy-pasted by Lenovo from Intel reference code for 8-series chipsets. This exact code is not available in public but open source firmware of some Intel boards is also sharing it. For example, here you can see SmmRuntimeManagementCallback() function from Intel Quark BSP -- it's exactly the same vulnerable code.
 
@@ -23,6 +23,16 @@ EDK2 source from public repository never had this vulnerability -- it's version 
 https://github.com/tianocore/edk2/commits/master/QuarkSocPkg
 
 It means that original vulnerability was fixed by Intel in the middle of 2014. Unfortunately, there was no any public adviosries, so, it's still not clear that Intel or Lenovo actualy knew about it. There's a high possibility that old Intel code with this vulnerability currently present in firmware of other OEM/IBV vendors.
+
+##########################################
+
+UPDATE FROM 01.07.2016:
+
+Lenovo released advisory for this vulnerability, they claims that vulnerable code written by Intel was received from 3-rd party IBV (Independent BIOS Vendor):
+
+https://support.lenovo.com/my/en/solutions/LEN-8324
+
+Now we can say for sure that products from other OEM's also has this vulnerability.
 
 ##########################################
 
