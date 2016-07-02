@@ -36,6 +36,14 @@ Now we can say for sure that products from other OEM's also has this vulnerabili
 
 ##########################################
 
+UPDATE FROM 02.07.2016:
+
+One of my followers confirmed that vulnerable code is present in his HP Pavilion laptop:
+
+https://twitter.com/al3xtjames/status/749063556486791168
+
+##########################################
+
 
 Vulnerable SMM callback code:
 
