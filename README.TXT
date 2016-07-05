@@ -8,7 +8,7 @@ For more information about this project please read the following article:
 http://blog.cr4.sh/2016/06/exploring-and-exploiting-lenovo.html
 
 
-This code exploits 0day privileges escalation vulnerability (or backdoor?) in SystemSmmRuntimeRt UEFI driver (GUID is 7C79AC8C-5E6C-4E3D-BA6F-C260EE7C172E) of Lenovo firmware. Vulnerability is present in all of the ThinkPad series laptops, the oldest one that I have checked is X220 and the neweset one is T450s (with latest firmware versions available at this moment). Running of arbitrary System Management Mode code allows attacker to disable flash write protection and infect platform firmware, disable Secure Boot, bypass Virtual Secure Mode (Credential Guard, etc.) on Windows 10 Enterprise and do others evil things.
+This code exploits 0day privileges escalation vulnerability (or backdoor?) in SystemSmmRuntimeRt UEFI driver (GUID is 7C79AC8C-5E6C-4E3D-BA6F-C260EE7C172E) of Lenovo firmware. Vulnerability is present in all of the ThinkPad series laptops, the oldest one that I have checked is X220 and the newest one is T450s (with latest firmware versions available at this moment). Running of arbitrary System Management Mode code allows attacker to disable flash write protection and infect platform firmware, disable Secure Boot, bypass Virtual Secure Mode (Credential Guard, etc.) on Windows 10 Enterprise and do others evil things.
 
 ##########################################
 
@@ -22,7 +22,7 @@ EDK2 source from public repository never had this vulnerability -- it's version 
 
 https://github.com/tianocore/edk2/commits/master/QuarkSocPkg
 
-It means that original vulnerability was fixed by Intel in the middle of 2014. Unfortunately, there was no any public adviosries, so, it's still not clear that Intel or Lenovo actualy knew about it. There's a high possibility that old Intel code with this vulnerability currently present in firmware of other OEM/IBV vendors.
+It means that original vulnerability was fixed by Intel in the middle of 2014. Unfortunately, there was no any public adviosries, so, it's still not clear that Intel or Lenovo actually knew about it. There's a high possibility that old Intel code with this vulnerability currently present in firmware of other OEM/IBV vendors.
 
 ##########################################
 
@@ -70,7 +70,7 @@ Vulnerable SMM callback code:
         if (v3)
         {
             /*
-              Vulnarability is here:
+              Vulnerability is here:
               this code calls some function by address from obtained v3 structure field.
             */
             *(v3 + 0x8)(*(VOID **)v3, &dword_AD002290, CommunicationBuffer + 0x18);
@@ -83,7 +83,7 @@ Vulnerable SMM callback code:
     }
 
 
-Proof of concept exploit for this vulnerability is designed as UEFI application that runs from UEFI shell. It's also possible to exploit it from runing operating system but you have to implement your own EFI_BASE_PROTOCOL.Communicate() function.
+Proof of concept exploit for this vulnerability is designed as UEFI application that runs from UEFI shell. It's also possible to exploit it from running operating system but you have to implement your own EFI_BASE_PROTOCOL.Communicate() function.
 
 To build exploit from the source code on Windows with Visual Studio compiler you have to perform the following steps:
 
