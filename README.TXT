@@ -44,6 +44,17 @@ https://twitter.com/al3xtjames/status/749063556486791168
 
 ##########################################
 
+UPDATE FROM 05.07.2016:
+
+Alex James found vulnerable code on motherboards from GIGABYTE (Z68-UD3H, Z77X-UD5H, Z87MX-D3H, Z97-D3H and many others):
+
+https://twitter.com/al3xtjames/status/750163415159582720
+https://twitter.com/al3xtjames/status/750183816266940417
+
+The interesting fact -- vulnerable UEFI driver from their firmwares has different GUID value than HP and Lenovo: A56897A1-A77F-4600-84DB-22B0A801FA9A
+
+##########################################
+
 
 Vulnerable SMM callback code:
 
