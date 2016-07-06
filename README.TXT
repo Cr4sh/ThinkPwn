@@ -64,6 +64,14 @@ https://twitter.com/173210/status/750569389741731840
 
 ##########################################
 
+UPDATE FROM 07.07.2016:
+
+Kasey Smith figured that Dell Latitude E6430 is also vulnerable, it means that other computers from Dell might be affected as well:
+
+https://twitter.com/Ziginox/status/750778513012043776
+
+##########################################
+
 
 Vulnerable SMM callback code:
 
