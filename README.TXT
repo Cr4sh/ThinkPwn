@@ -55,6 +55,15 @@ The interesting fact -- vulnerable UEFI driver from their firmwares has differen
 
 ##########################################
 
+UPDATE FROM 06.07.2016:
+
+Japaneese researcher known as 173210 found vulnerable code in firmware of Fujitsu LIFEBOOK A574/H, other Fujitsu computers probably affected as well:
+
+https://twitter.com/173210/status/750565904111562752
+https://twitter.com/173210/status/750569389741731840
+
+##########################################
+
 
 Vulnerable SMM callback code:
 
