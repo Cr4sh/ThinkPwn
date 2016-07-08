@@ -18,6 +18,7 @@
 
 #include <Protocol/SmmBase.h>
 #include <Protocol/SmmAccess.h>
+#include <Protocol/SmmAccess2.h>
 #include <Protocol/LoadedImage.h>
 #include <Protocol/SimpleFileSystem.h>
 
@@ -409,8 +410,8 @@ int main(int Argc, char **Argv)
     EFI_STATUS Status = EFI_SUCCESS;    
     EFI_SMM_ACCESS_PROTOCOL *SmmAccess = NULL;  
 
-    EFI_SMRAM_DESCRIPTOR SmramMap[MAX_SMRAM_REGIONS];
-    UINTN SmramMapSize = sizeof(SmramMap), i = 0;
+    EFI_SMRAM_DESCRIPTOR *SmramMap = NULL;
+    UINTN SmramMapSize = 0, i = 0;
 
     if (Argc >= 2)
     {
@@ -454,15 +455,35 @@ int main(int Argc, char **Argv)
     }
 
     // locate SMM access protocol
-    if ((Status = gBS->LocateProtocol(&gEfiSmmAccessProtocolGuid, NULL, &SmmAccess)) != EFI_SUCCESS)
+    if ((Status = gBS->LocateProtocol(&gEfiSmmAccessProtocolGuid, NULL, (VOID **)&SmmAccess)) != EFI_SUCCESS)
     {
-        printf("ERROR: Unable to locate SMM access protocol: 0x%.8x\n", Status);
+        SmmAccess = NULL;
+        printf("ERROR: Unable to locate SMM access protocol, trying SmmAccess2...\n");
+        if ((Status = gBS->LocateProtocol(&gEfiSmmAccess2ProtocolGuid, NULL, (VOID **)&SmmAccess)) != EFI_SUCCESS)
+        {
+            printf("ERROR: Unable to locate SmmAccess2 protocol: 0x%X\n", Status);
+            goto _end;
+        }
+    }
+
+    printf("SMM access protocol is at 0x%p\n", (VOID *)SmmAccess);
+
+    // get SMRAM regions information
+    Status = SmmAccess->GetCapabilities (SmmAccess, &SmramMapSize, NULL);
+    
+    if (Status != EFI_BUFFER_TOO_SMALL)
+    {
+        printf("GetCapabilities() ERROR 0x%X\n", Status);
         goto _end;
     }
 
-    printf("SMM access protocol is at 0x%llx\n", SmmAccess);
-
-    // get SMRAM regions information
+    SmramMap = NULL;
+    if ((Status = gBS->AllocatePool(EfiRuntimeServicesData, SmramMapSize, (VOID **)&SmramMap)) != EFI_SUCCESS)
+    {
+        printf("AllocatePool() ERROR 0x%.8x\n", Status);
+        return -1;
+    }
+    
     if ((Status = SmmAccess->GetCapabilities(SmmAccess, &SmramMapSize, SmramMap)) != EFI_SUCCESS)
     {
         printf("GetCapabilities() ERROR 0x%.8x\n", Status);
@@ -500,6 +521,11 @@ int main(int Argc, char **Argv)
 
 _end:
 
+    if (SmramMap)
+    {
+        gBS->FreePool(SmramMap);   
+    }
+    
     if (g_DumpBuff)
     {
         gBS->FreePool(g_DumpBuff);   
