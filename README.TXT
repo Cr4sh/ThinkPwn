@@ -72,6 +72,16 @@ https://twitter.com/Ziginox/status/750778513012043776
 
 ##########################################
 
+UPDATE FROM 08.07.2016:
+
+Lenovo updated their advisory with product models information, tere's a quite lot of vulnerable machines from IdeaPad and ThinkPad lines:
+
+https://support.lenovo.com/my/en/solutions/LEN-8324
+
+Also, it seems that vulnerability is not present in Skylake based Lenovo computers.
+
+##########################################
+
 
 Vulnerable SMM callback code:
 
