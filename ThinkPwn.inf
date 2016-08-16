@@ -30,6 +30,8 @@
 [Protocols]
   gEfiSmmBaseProtocolGuid
   gEfiSmmAccessProtocolGuid
+  gEfiSmmAccess2ProtocolGuid
+  gEfiSmmCommunicationProtocolGuid
   gEfiLoadedImageProtocolGuid
   gEfiSimpleFileSystemProtocolGuid
   

@@ -36,7 +36,7 @@ void hexdump(unsigned char *data, size_t length, void *addr)
                 strcat(buff, byte);
             }
 
-            printf("%.8llx: %s\n", (unsigned long long)addr + dp - 16, buff);
+            printf("%p: %s\n", (unsigned char *)addr + dp - 16, buff);
             memset(buff, 0, sizeof(buff));
         }
     }
@@ -64,8 +64,8 @@ void hexdump(unsigned char *data, size_t length, void *addr)
         }
 
         printf(
-            "%.8llx: %s\n", 
-            (unsigned long long)addr + length - (length % 16), buff
+            "%p: %s\n", 
+            (unsigned char *)addr + length - (length % 16), buff
         );
     }
 }
