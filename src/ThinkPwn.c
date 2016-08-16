@@ -40,7 +40,7 @@
 // SMM communication data size
 #define BUFF_SIZE 0x1000
 
-#define MAX_SMRAM_REGIONS   2
+#define MAX_SMRAM_REGIONS   0x10
 #define MAX_HANDLES         0x10
 #define MAX_PATH            0x200
 
@@ -302,10 +302,10 @@ EFI_STATUS Communicate(EFI_SMM_BASE_PROTOCOL *SmmBase, EFI_HANDLE CallbackHandle
 {
     UINT8 SmiNum = 0;    
     VOID *Proto = NULL;
-    EFI_GUID Guid[] = { COMMUNICATE_GUID };
+    EFI_GUID Guid = COMMUNICATE_GUID;
 
     // locate OEM specific protocol
-    EFI_STATUS Status = gBS->LocateProtocol(Guid, NULL, &Proto);
+    EFI_STATUS Status = gBS->LocateProtocol(&Guid, NULL, &Proto);
     if (Status == EFI_SUCCESS)
     {
         // global structure that used in EFI_SMM_BASE_PROTOCOL->Communicate()
