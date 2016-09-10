@@ -92,6 +92,16 @@ Fixes will be released at 19-th of September.
 
 ##########################################
 
+UPDATE FROM 09.08.2016:
+
+HP released ThinkPwn advisory with the list of vulnerable computer models:
+
+http://h20564.www2.hp.com/hpsc/doc/public/display?docId=emr_na-c05230715
+
+Patches are not available yet.
+
+##########################################
+
 
 Vulnerable SMM callback code:
 
