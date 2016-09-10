@@ -82,6 +82,16 @@ Also, it seems that vulnerability is not present in Skylake based Lenovo compute
 
 ##########################################
 
+UPDATE FROM 08.08.2016:
+
+It seems that server motherboards from Intel are also vulnerable, Intel released their own advisory for ThinkPwn (aka SmmRuntime) vulnerability: 
+
+https://security-center.intel.com/advisory.aspx?intelid=INTEL-SA-00056&languageid=en-fr
+
+Fixes will be released at 19-th of September. 
+
+##########################################
+
 
 Vulnerable SMM callback code:
 
