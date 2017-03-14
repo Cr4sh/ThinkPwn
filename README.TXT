@@ -173,6 +173,11 @@ Obtaining FvFile(7C79AC8C-5E6C-4E3D-BA6F-C260EE7C172E) image handles...
 SmmHandler() was executed, exploitation success!
 
 
+This repository is also contains a Python program that allows to scan firmware image from any computer vendor/model for UEFI SMM driver that has ThinkPwn vulnerability. For more information check it's source code:
+
+https://github.com/Cr4sh/ThinkPwn/blob/master/scan_thinkpwn.py
+
+
 Written by:
 Dmytro Oleksiuk (aka Cr4sh)
 
