@@ -8,7 +8,7 @@ For more information about this project please read the following article:
 http://blog.cr4.sh/2016/06/exploring-and-exploiting-lenovo.html
 
 
-This code exploits 0day privileges escalation vulnerability (or backdoor?) in SystemSmmRuntimeRt UEFI driver (GUID is 7C79AC8C-5E6C-4E3D-BA6F-C260EE7C172E) of Lenovo firmware. Vulnerability is present in all of the ThinkPad series laptops, the oldest one that I have checked is X220 and the neweset one is T450s (with latest firmware versions available at this moment). Running of arbitrary System Management Mode code allows attacker to disable flash write protection and infect platform firmware, disable Secure Boot, bypass Virtual Secure Mode (Credential Guard, etc.) on Windows 10 Enterprise and do others evil things.
+This code exploits 0day privileges escalation vulnerability (or backdoor?) in SystemSmmRuntimeRt UEFI driver (GUID is 7C79AC8C-5E6C-4E3D-BA6F-C260EE7C172E) of Lenovo firmware. Vulnerability is present in all of the ThinkPad series laptops, the oldest one that I have checked is X220 and the newest one is T450s (with latest firmware versions available at this moment). Running of arbitrary System Management Mode code allows attacker to disable flash write protection and infect platform firmware, disable Secure Boot, bypass Virtual Secure Mode (Credential Guard, etc.) on Windows 10 Enterprise and do others evil things.
 
 ##########################################
 
@@ -22,7 +22,7 @@ EDK2 source from public repository never had this vulnerability -- it's version 
 
 https://github.com/tianocore/edk2/commits/master/QuarkSocPkg
 
-It means that original vulnerability was fixed by Intel in the middle of 2014. Unfortunately, there was no any public adviosries, so, it's still not clear that Intel or Lenovo actualy knew about it. There's a high possibility that old Intel code with this vulnerability currently present in firmware of other OEM/IBV vendors.
+It means that original vulnerability was fixed by Intel in the middle of 2014. Unfortunately, there was no any public advisories, so, it's still not clear that Intel or Lenovo actually knew about it. There's a high possibility that old Intel code with this vulnerability currently present in firmware of other OEM/IBV vendors.
 
 ##########################################
 
@@ -57,7 +57,7 @@ The interesting fact -- vulnerable UEFI driver from their firmwares has differen
 
 UPDATE FROM 06.07.2016:
 
-Japaneese researcher known as 173210 found vulnerable code in firmware of Fujitsu LIFEBOOK A574/H, other Fujitsu computers probably affected as well:
+Japanese researcher known as 173210 found vulnerable code in firmware of Fujitsu LIFEBOOK A574/H, other Fujitsu computers probably affected as well:
 
 https://twitter.com/173210/status/750565904111562752
 https://twitter.com/173210/status/750569389741731840
@@ -74,7 +74,7 @@ https://twitter.com/Ziginox/status/750778513012043776
 
 UPDATE FROM 08.07.2016:
 
-Lenovo updated their advisory with product models information, tere's a quite lot of vulnerable machines from IdeaPad and ThinkPad lines:
+Lenovo updated their advisory with product models information, there's a quite lot of vulnerable machines from IdeaPad and ThinkPad lines:
 
 https://support.lenovo.com/my/en/solutions/LEN-8324
 
@@ -117,7 +117,7 @@ Vulnerable SMM callback code:
         if (v3)
         {
             /*
-              Vulnarability is here:
+              Vulnerability is here:
               this code calls some function by address from obtained v3 structure field.
             */
             *(v3 + 0x8)(*(VOID **)v3, &dword_AD002290, CommunicationBuffer + 0x18);
@@ -130,7 +130,7 @@ Vulnerable SMM callback code:
     }
 
 
-Proof of concept exploit for this vulnerability is designed as UEFI application that runs from UEFI shell. It's also possible to exploit it from runing operating system but you have to implement your own EFI_BASE_PROTOCOL.Communicate() function.
+Proof of concept exploit for this vulnerability is designed as UEFI application that runs from UEFI shell. It's also possible to exploit it from running operating system but you have to implement your own EFI_BASE_PROTOCOL.Communicate() function.
 
 This exact PoC was designed only for Lenovo computers and it's a pure luck that it works anywhere else. If it will fail to exploit the vulnerability on any other vendor machine it doesn't mean that machine is not vulnerable, probably it just not supported by exploit.
 
